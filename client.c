@@ -26,7 +26,7 @@ int main(int argc, char *argv[]) {
     if (choosedMovie == 0) break; // Se o usuário optar por sair, encerra o programa
 
     // Cria um socket usando UDP
-    int clientSocket = socket(AF_INET, SOCK_DGRAM, 0);
+    int clientSocket = socket((ipType == IPV4) ? AF_INET : AF_INET6, SOCK_DGRAM, 0);
     if (clientSocket < 0) {
       exitWithError("ERROR opening socket");
     }
@@ -36,9 +36,11 @@ int main(int argc, char *argv[]) {
 
     // Envia uma mensagem para o servidor
     char message[MESSAGE_SIZE];
-    sprintf(message, "%d", choosedMovie);
     memset(message, 0, MESSAGE_SIZE);
-    int n = sendto(clientSocket, message, strlen(message), 0, (struct sockaddr *)&serverAddress, sizeof(serverAddress));
+    sprintf(message, "%d", choosedMovie);
+
+    socklen_t addrLen = (ipType == IPV4) ? sizeof(struct sockaddr_in) : sizeof(struct sockaddr_in6);
+    int n = sendto(clientSocket, message, strlen(message), 0, (struct sockaddr *)&serverAddress, addrLen);
     if (n < 0) {
       exitWithError("ERROR sending message to server");
     }
