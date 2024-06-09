@@ -111,6 +111,8 @@ int main(int argc, char *argv[]) {
       exitWithError("recvfrom() failed");
     }
 
+    printf("message received: %s\n", buffer);
+
     struct clientInfo client;
     client.socket = serverSock;
     client.choice = atoi(buffer) - 1;
