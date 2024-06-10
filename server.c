@@ -1,12 +1,13 @@
-#include "utils.h"
 #include <stdlib.h>
 #include <string.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netdb.h>
-#include <netinet/in.h>
 #include <pthread.h>
+#include <stdio.h>
+#include <unistd.h>
 
+#define MESSAGE_SIZE 256
 #define NUM_MOVIES 3
 #define NUM_PHRASES 5
 
