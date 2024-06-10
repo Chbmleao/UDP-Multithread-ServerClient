@@ -19,14 +19,14 @@ int main(int argc, char *argv[]) {
     exitWithError("Usage: ./client <ip-type> <server-ip> <server-port>");
   }  
 
-  int ipType = (strcmp(argv[1], "ipv6") == 0) ? IPV6 : IPV4;; // First arg: ip type
+  char *ipType = argv[1]; // First arg: ip type
   char *serverIP = argv[2]; // Second arg: server IP address
   char *serverPort = argv[3]; // Third arg: server port
 
   // Tell the system what kind(s) of address info we want
   struct addrinfo addrCriteria; // Criteria for address
   memset(&addrCriteria, 0, sizeof(addrCriteria)); // Zero out structure
-  addrCriteria.ai_family = AF_UNSPEC; // Any address family
+  addrCriteria.ai_family = (strcmp(ipType, "ipv6") == 0) ? AF_INET6 : AF_INET;
   addrCriteria.ai_socktype = SOCK_DGRAM; // Only datagram socket
   addrCriteria.ai_protocol = IPPROTO_UDP; // Only UDP socket
 
