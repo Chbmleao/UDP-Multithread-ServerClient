@@ -1,5 +1,5 @@
 CC = gcc
-CFLAGS = -lm -Wall -Wextra
+CFLAGS = -lm -Wall -Wextra -pthread
 
 CLIENT_SRC = client.c utils.c  
 SERVER_SRC = server.c utils.c  
