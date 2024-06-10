@@ -5,6 +5,7 @@
 #include <sys/socket.h>
 #include <netdb.h>
 #include <netinet/in.h>
+#include <pthread.h>
 
 #define NUM_MOVIES 3
 #define NUM_PHRASES 5
@@ -13,7 +14,7 @@ struct clientInfo {
   int socket;
   int choice; // Opção escolhida pelo cliente
   int lastPhrase; // Última frase exibida
-  struct sockaddr_storage* sockaddr;
+  struct sockaddr_storage sockaddr;
 };
 
 const char *phrases[NUM_MOVIES][NUM_PHRASES] = {
@@ -40,10 +41,12 @@ const char *phrases[NUM_MOVIES][NUM_PHRASES] = {
   }
 };
 
-void clientHandler(struct clientInfo *client) {
+void* clientHandler(void *arg) {
+  struct clientInfo *client = (struct clientInfo *)arg; // Cast the argument back to the struct type
+
   if (client->choice < 0 || client->choice > NUM_MOVIES-1) {
     printf("Opção inválida\n");
-    return;
+    return 0;
   }
 
   client->lastPhrase = 0;
@@ -52,9 +55,9 @@ void clientHandler(struct clientInfo *client) {
     char buffer[MESSAGE_SIZE];
     strcpy(buffer, phrases[client->choice][client->lastPhrase]);
 
-    ssize_t numBytesSent = sendto(client->socket, buffer, strlen(buffer), 0, client->sockaddr, sizeof(*client->sockaddr));
+    ssize_t numBytesSent = sendto(client->socket, buffer, strlen(buffer), 0, (struct sockaddr*) &(client->sockaddr), sizeof(client->sockaddr));
     if (numBytesSent < 0) {
-      exitWithError("sendto() failed");
+      perror("sendto() failed");
     }
 
     client->lastPhrase++;
@@ -64,15 +67,17 @@ void clientHandler(struct clientInfo *client) {
 
   char endMessage[] = "END";
 
-  ssize_t numBytesSent = sendto(client->socket, endMessage, strlen(endMessage), 0, client->sockaddr, sizeof(*client->sockaddr));
+  ssize_t numBytesSent = sendto(client->socket, endMessage, strlen(endMessage), 0, (struct sockaddr*) &(client->sockaddr), sizeof(client->sockaddr));
   if (numBytesSent < 0) {
-    exitWithError("sendto() failed");
+    perror("sendto() failed");
   }
+  
+  return 0;
 }
 
 int main(int argc, char *argv[]) {
   if (argc != 3) {
-    exitWithError("Usage: ./server <ip-type> <port>");
+    perror("Usage: ./server <ip-type> <port>");
   }
 
   char *ipType = argv[1];
@@ -89,18 +94,18 @@ int main(int argc, char *argv[]) {
   struct addrinfo *serverAddr; // List of server addresses
   int rtnVal = getaddrinfo(NULL, serverPort, &addrCriteria, &serverAddr);  
   if (rtnVal != 0) {
-    exitWithError("getaddrinfo() failed");
+    perror("getaddrinfo() failed");
   }
 
   // Create socket for incoming connections
   int serverSock = socket(serverAddr->ai_family, serverAddr->ai_socktype, serverAddr->ai_protocol);
   if (serverSock < 0) {
-    exitWithError("socket() failed");
+    perror("socket() failed");
   }
 
   // Bind to the local address
   if (bind(serverSock, serverAddr->ai_addr, serverAddr->ai_addrlen) < 0) {
-    exitWithError("bind() failed");
+    perror("bind() failed");
   }
 
   // Free address list allocated by getaddrinfo()
@@ -108,25 +113,33 @@ int main(int argc, char *argv[]) {
 
   while (1) {
     printf("Aguardando conexão...\n");
-    struct sockaddr_storage clntAddr; // Client address
-    // Set length of client address structure (in-out parameter)
-    socklen_t clntAddrLen = sizeof(clntAddr);
-
-    // Block until receive message from a client
-    char buffer[MESSAGE_SIZE]; // I/O buffer
-    ssize_t numBytesRcvd = recvfrom(serverSock, buffer, MESSAGE_SIZE, 0, (struct sockaddr *) &clntAddr, &clntAddrLen);
-    if (numBytesRcvd < 0) {
-      exitWithError("recvfrom() failed");
+    struct clientInfo *client = malloc(sizeof(struct clientInfo));
+    if (client == NULL) {
+      perror("malloc() failed");
+      continue;
     }
 
-    struct clientInfo client;
-    client.socket = serverSock;
-    client.choice = atoi(buffer) - 1;
-    client.sockaddr = &clntAddr;
+    // Set length of client address structure (in-out parameter)
+    socklen_t clntAddrLen = sizeof(client->sockaddr);
 
-    clientHandler(&client);
+    char buffer[MESSAGE_SIZE]; // I/O buffer
+    ssize_t numBytesRcvd = recvfrom(serverSock, buffer, MESSAGE_SIZE, 0, (struct sockaddr *) &(client->sockaddr), &clntAddrLen);
+    if (numBytesRcvd < 0) {
+      free(client);
+      perror("recvfrom() failed");
+    }
+    
+    client->socket = serverSock;
+    client->choice = atoi(buffer) - 1;
+
+    pthread_t thread;
+    int ret = pthread_create(&thread, NULL, clientHandler, (void *)client);
+    if (ret != 0) {
+      perror("pthread_create() failed");
+      free(client);
+      continue;
+    }
   }
-
 
   return 0;
 }
