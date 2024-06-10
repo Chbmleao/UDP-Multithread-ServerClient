@@ -13,6 +13,7 @@ struct clientInfo {
   int socket;
   int choice; // Opção escolhida pelo cliente
   int lastPhrase; // Última frase exibida
+  struct sockaddr* sockaddr;
 };
 
 const char *phrases[NUM_MOVIES][NUM_PHRASES] = {
@@ -40,7 +41,7 @@ const char *phrases[NUM_MOVIES][NUM_PHRASES] = {
 };
 
 void clientHandler(struct clientInfo *client) {
-  if (client->choice < 1 || client->choice > NUM_MOVIES) {
+  if (client->choice < 0 || client->choice > NUM_MOVIES-1) {
     printf("Opção inválida\n");
     return;
   }
@@ -48,17 +49,30 @@ void clientHandler(struct clientInfo *client) {
   client->lastPhrase = 0;
 
   while (client->lastPhrase < NUM_PHRASES) {
-    char buffer[MESSAGE_SIZE];
-    strcpy(buffer, phrases[client->choice][client->lastPhrase + 1]);
+    printf("Enviando frase %d, do filme %d\n", client->lastPhrase, client->choice);
 
-    ssize_t numBytesSent = send(client->socket, buffer, strlen(buffer), 0);
+    if (client->lastPhrase >= NUM_PHRASES || client->lastPhrase >= NUM_PHRASES) {
+      client->lastPhrase = NUM_PHRASES;
+      break;
+    }
+    char buffer[MESSAGE_SIZE];
+    strcpy(buffer, phrases[client->choice][client->lastPhrase]);
+
+    ssize_t numBytesSent = sendto(client->socket, buffer, strlen(buffer), 0, client->sockaddr, sizeof(*client->sockaddr));
     if (numBytesSent < 0) {
-      exitWithError("send() failed");
+      exitWithError("sendto() failed");
     }
 
     client->lastPhrase++;
 
     sleep(3);
+  }
+
+  char endMessage[] = "END";
+
+  ssize_t numBytesSent = sendto(client->socket, endMessage, strlen(endMessage), 0, client->sockaddr, sizeof(*client->sockaddr));
+  if (numBytesSent < 0) {
+    exitWithError("sendto() failed");
   }
 }
 
@@ -74,7 +88,7 @@ int main(int argc, char *argv[]) {
   struct addrinfo addrCriteria; // Criteria for address
   memset(&addrCriteria, 0, sizeof(addrCriteria)); // Zero out structure
   addrCriteria.ai_family = AF_UNSPEC; // Any address family
-  //  addrCriteria.ai_flags = AI_PASSIVE; // Accept on any address/port
+  addrCriteria.ai_flags = AI_PASSIVE; // Accept on any address/port
   addrCriteria.ai_socktype = SOCK_DGRAM; // Only datagram socket
   addrCriteria.ai_protocol = IPPROTO_UDP; // Only UDP socket
 
@@ -111,11 +125,10 @@ int main(int argc, char *argv[]) {
       exitWithError("recvfrom() failed");
     }
 
-    printf("message received: %s\n", buffer);
-
     struct clientInfo client;
     client.socket = serverSock;
     client.choice = atoi(buffer) - 1;
+    client.sockaddr = (struct sockaddr *) &clntAddr;
 
     clientHandler(&client);
   }

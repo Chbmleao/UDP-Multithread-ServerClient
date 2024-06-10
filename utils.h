@@ -13,7 +13,7 @@
 
 #define IPV4 AF_INET
 #define IPV6 AF_INET6
-#define MESSAGE_SIZE 40
+#define MESSAGE_SIZE 256
 
 union ServerAddress {
   struct sockaddr_in serverAddressIPV4; 

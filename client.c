@@ -7,6 +7,7 @@
 #include <netinet/in.h>
 
 void printClientMenu() {
+  printf("\n");
   printf("0 - Sair\n");
   printf("1 - Senhor dos anéis\n");
   printf("2 - O Poderoso Chefão\n");
@@ -61,9 +62,6 @@ int main(int argc, char *argv[]) {
       exitWithError("ERROR sending unexpected number of bytes");
     }
 
-    printf("numBytesSent: %ld\n", numBytesSent);
-    printf("message: %s\n", echoString);
-
     int movieEnded = 0;
     while (!movieEnded) {
       ssize_t numBytesRcvd = 0; // Bytes received in single recv()
@@ -81,7 +79,7 @@ int main(int argc, char *argv[]) {
       }
 
       // Verifica se a mensagem indica o fim do filme
-      if (strcmp(buffer, "FIM") == 0) {
+      if (strcmp(buffer, "END") == 0) {
         movieEnded = 1;
         break;
       }
