@@ -18,6 +18,10 @@ struct clientInfo {
   struct sockaddr_storage sockaddr;
 };
 
+// Global variables
+int numConnectedClients = 0;
+pthread_mutex_t clientCountMutex = PTHREAD_MUTEX_INITIALIZER;
+
 const char *phrases[NUM_MOVIES][NUM_PHRASES] = {
   { // Senhor dos Anéis
     "Um anel para a todos governar",
@@ -50,6 +54,11 @@ void* clientHandler(void *arg) {
     return 0;
   }
 
+  // Increment client counter
+  pthread_mutex_lock(&clientCountMutex);
+  numConnectedClients++;
+  pthread_mutex_unlock(&clientCountMutex);
+
   client->lastPhrase = 0;
 
   while (client->lastPhrase < NUM_PHRASES) {
@@ -72,7 +81,24 @@ void* clientHandler(void *arg) {
   if (numBytesSent < 0) {
     perror("sendto() failed");
   }
+
+  // Decrement client counter
+  pthread_mutex_lock(&clientCountMutex);
+  numConnectedClients--;
+  pthread_mutex_unlock(&clientCountMutex);
   
+  return 0;
+}
+
+void* printNumConnectedClients() {
+  while (1) {
+    pthread_mutex_lock(&clientCountMutex);
+    int count = numConnectedClients;
+    pthread_mutex_unlock(&clientCountMutex);
+
+    printf("Número de clientes conectados: %d\n", count);
+    sleep(4);
+  }
   return 0;
 }
 
@@ -112,8 +138,14 @@ int main(int argc, char *argv[]) {
   // Free address list allocated by getaddrinfo()
   freeaddrinfo(serverAddr);
 
+  // Start the print thread
+  pthread_t printThread;
+  int ret = pthread_create(&printThread, NULL, printNumConnectedClients, NULL);
+  if (ret != 0) {
+    perror("pthread_create() failed");
+  }
+
   while (1) {
-    printf("Aguardando conexão...\n");
     struct clientInfo *client = malloc(sizeof(struct clientInfo));
     if (client == NULL) {
       perror("malloc() failed");
