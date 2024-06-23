@@ -45,6 +45,12 @@ const char *phrases[NUM_MOVIES][NUM_PHRASES] = {
   }
 };
 
+// Função para imprimir uma mensagem de erro e encerrar o programa
+void printErrorAndExit(char *message) {
+  perror(message);
+  exit(1);
+}
+
 // Função para lidar com a comunicação com cada cliente
 void* clientHandler(void *arg) {
   struct clientInfo *client = (struct clientInfo *)arg; // Cast the argument back to the struct type
@@ -98,12 +104,6 @@ void* clientHandler(void *arg) {
   pthread_mutex_unlock(&clientCountMutex); // Libera o mutex
   
   return 0;
-}
-
-// Função para imprimir uma mensagem de erro e encerrar o programa
-void printErrorAndExit(char *message) {
-  perror(message);
-  exit(1);
 }
 
 // Função para imprimir o número de clientes conectados a cada 4 segundos
